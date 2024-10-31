@@ -11,6 +11,7 @@ A Python-based WallTaker client with support for pop-out viewing and new image n
 - System Tray Integration: Minimizes to the system tray with the option to close, run in the background, or fully exit from the tray menu.
 - Adjustable Polling and Notification Settings: Sliders for setting polling delay, pop-out size, and notification volume allow easy customization and control.
 - Image download button for easy saving of images sent to you!
+- A button that allows you to automatically download all incoming images!
 
 # Known Issues
 - The app does not support videos or gifs (Sorry! This is just a limitation of my knowledge of Python!)
