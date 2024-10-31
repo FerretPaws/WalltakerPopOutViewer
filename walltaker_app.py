@@ -27,7 +27,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
     
         # Set base dimensions for scaling
         self.base_width = 500
-        self.base_height = 900
+        self.base_height = 1000
         self.scale_window_to_screen()
         
         self.bg_color = "#2E2E2E"
@@ -89,6 +89,12 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.download_button.clicked.connect(self.download_image)
         self.layout.addWidget(self.download_button, alignment=QtCore.Qt.AlignCenter)
         self.download_button.setStyleSheet(f"background-color: {self.button_bg}")
+
+        self.auto_download_button = QtWidgets.QPushButton("Toggle Auto Image Download")
+        self.auto_download_button.setCheckable(True)
+        self.auto_download_button.clicked.connect(self.toggle_auto_download)
+        self.layout.addWidget(self.auto_download_button, alignment=QtCore.Qt.AlignCenter)
+        self.auto_download_button.setStyleSheet(f"background-color: {self.button_bg}")
 
         # Initialize pop-out window
         self.popout_window = ImagePopOut()
@@ -157,6 +163,9 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.tray_menu.addAction(QAction('Exit', self, triggered=self.exit))
         self.tray_icon.setContextMenu(self.tray_menu)
 
+    def toggle_auto_download(self):
+        self.auto_download_images = self.auto_download_button.isChecked()
+
     def download_image(self):
         if self.image_link:
             response = requests.get(self.image_link)
@@ -191,7 +200,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
         scale_factor = min(screen_width / self.base_width, screen_height / self.base_height)
 
         # Apply scaling factor with slight reduction in height to set window size
-        adjusted_height = int(self.base_height * scale_factor * 0.9)  # Adjust height to be 90% of scaled height
+        adjusted_height = int(self.base_height * scale_factor * .95) 
         self.setFixedSize(int(self.base_width * scale_factor), adjusted_height)
 
 
@@ -326,19 +335,30 @@ class WalltakerApp(QtWidgets.QMainWindow):
                 data = response.json()
 
                 if data['post_url'] != last_post_url:
+                    # Check for unsupported file types
+                    if data['post_url'].endswith(('.mp4', '.gif', '.webm')):
+                        self.show_error("Unsupported media format received (.mp4, .gif, .webm). Keeping the previous image.")
+                        continue
+
                     last_posted_by = data['set_by']
                     self.image_link = data["post_url"]
                     last_post_url = self.image_link
                     self.fetch_user_info(data['set_by'])
-                    print("Userinfo gathered")
 
+                    # Attempt to load and display the image
                     image_response = requests.get(data["post_url"], headers=headers)
                     image = Image.open(BytesIO(image_response.content))
                     qt_image = ImageQt(image)
                     pixmap = QPixmap.fromImage(qt_image)
                     self.image_signal.emit(pixmap)  # Emit the signal with the new pixmap
+
+                    # Auto-download feature
+                    if self.auto_download_button.isChecked() and self.image_link:
+                        self.download_image()
+
             except Exception as e:
                 self.show_error(f"Polling failed: {e}")
+
             time.sleep(self.polling_interval)
 
     def update_image_label(self, pixmap):
@@ -354,7 +374,6 @@ class WalltakerApp(QtWidgets.QMainWindow):
 
         # Create a relative path to the images folder
         sounds_folder = current_dir / 'sounds'
-        print(sounds_folder)
         pygame.init()
         pygame.mixer.music.load(f"{sounds_folder}/notif.mp3")
         pygame.mixer.music.set_volume(self.notif_vol_slider.value() / 100)  # Set the volume to 50%

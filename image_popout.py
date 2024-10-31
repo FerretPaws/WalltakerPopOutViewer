@@ -2,6 +2,12 @@ from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtGui import *
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtWidgets import *
+import mimetypes
+from PyQt5.QtMultimediaWidgets import QVideoWidget
+from PyQt5.QtCore import QUrl
+from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
+from PyQt5.QtMultimediaWidgets import QVideoWidget
+from PyQt5.QtCore import QUrl
 
 class ImagePopOut(QtWidgets.QWidget):
     def __init__(self):
@@ -19,7 +25,6 @@ class ImagePopOut(QtWidgets.QWidget):
         self.max_height = 600  # Set maximum height
 
     def update_image(self, pixmap):
-        # Scale the pixmap to fit within the maximum dimensions while maintaining aspect ratio
         scaled_pixmap = pixmap.scaled(self.max_width, self.max_height, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
         self.image_label.setPixmap(scaled_pixmap)
         self.image_label.adjustSize()
