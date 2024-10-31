@@ -14,6 +14,7 @@ from PyQt5 import QtGui
 from PyQt5.QtCore import QTimer
 import pathlib
 import pygame
+import os
 from image_popout import ImagePopOut # type: ignore
 
 class WalltakerApp(QtWidgets.QMainWindow):
@@ -23,7 +24,12 @@ class WalltakerApp(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Walltaker Pop-Out Viewer")
-        self.setFixedSize(500, 1000)
+    
+        # Set base dimensions for scaling
+        self.base_width = 500
+        self.base_height = 900
+        self.scale_window_to_screen()
+        
         self.bg_color = "#2E2E2E"
         self.text_color = "#FFFFFF"
         self.button_bg = "#555555"
@@ -71,20 +77,26 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.polling_interval = 15
         self.is_polling = False
 
-        self.setStyleSheet(f"background-color: {self.bg_color}; color: {self.text_color};")
+        self.setStyleSheet(f"background-color: {self.bg_color}; color: {self.text_color}; font-size: 12pt; font-family: Helvetica;")
 
-        # Toggle Pop-Out Mode
         self.popout_toggle_button = QtWidgets.QPushButton("Enable Pop-Out Mode")
         self.popout_toggle_button.setCheckable(True)
         self.popout_toggle_button.clicked.connect(self.toggle_popout_mode)
         self.layout.addWidget(self.popout_toggle_button, alignment=QtCore.Qt.AlignCenter)
+        self.popout_toggle_button.setStyleSheet(f"background-color: {self.button_bg}")
+
+        self.download_button = QtWidgets.QPushButton("Download Image")
+        self.download_button.clicked.connect(self.download_image)
+        self.layout.addWidget(self.download_button, alignment=QtCore.Qt.AlignCenter)
+        self.download_button.setStyleSheet(f"background-color: {self.button_bg}")
 
         # Initialize pop-out window
         self.popout_window = ImagePopOut()
 
         self.image_signal.connect(self.update_image_label)
-        self.image_signal.connect(self.popout_window.update_image) 
+        self.image_signal.connect(self.popout_window.update_image)
 
+        # Sliders and Labels
         self.polling_delay_slider = QSlider(QtCore.Qt.Horizontal)
         self.polling_delay_slider.setMinimum(10)
         self.polling_delay_slider.setMaximum(60)
@@ -145,9 +157,47 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.tray_menu.addAction(QAction('Exit', self, triggered=self.exit))
         self.tray_icon.setContextMenu(self.tray_menu)
 
+    def download_image(self):
+        if self.image_link:
+            response = requests.get(self.image_link)
+            if response.status_code == 200:
+                # Create the "downloads" folder if it doesn't exist
+                downloads_folder = 'downloads'
+                if not os.path.exists(downloads_folder):
+                    os.makedirs(downloads_folder)
+
+                # Get the number of existing images in the "downloads" folder
+                existing_images = [f for f in os.listdir(downloads_folder) if f.startswith('img') and f.endswith('.png')]
+                image_number = len(existing_images) + 1
+
+                # Save the image inside the "downloads" folder with a unique file name
+                image_path = os.path.join(downloads_folder, f'img_{image_number}.png')
+                with open(image_path, 'wb') as f:
+                    f.write(response.content)
+                self.show_toast("Image downloaded!", success=True)
+            else:
+                self.show_toast("Download Failed!", success=False)
+        else:
+                self.show_toast("No image link!", success=False)
+
+    def scale_window_to_screen(self):
+        # Get screen resolution
+        screen = QtWidgets.QApplication.primaryScreen()
+        screen_geometry = screen.geometry()
+        screen_width = screen_geometry.width()
+        screen_height = screen_geometry.height()
+
+        # Calculate scaling factor based on screen size and base dimensions
+        scale_factor = min(screen_width / self.base_width, screen_height / self.base_height)
+
+        # Apply scaling factor with slight reduction in height to set window size
+        adjusted_height = int(self.base_height * scale_factor * 0.9)  # Adjust height to be 90% of scaled height
+        self.setFixedSize(int(self.base_width * scale_factor), adjusted_height)
+
+
     def show_toast(self, message, success=True):
         self.toast_label.setText(message)
-        self.toast_label.setStyleSheet("background-color: #333; color: #fff; padding: 10px; border-radius: 5px;" if success else "background-color: #f00; color: #fff; padding: 10px; border-radius: 5px;")
+        self.toast_label.setStyleSheet("background-color: #333; color: #fff; padding: 10px; border-radius: 5px" if success else "background-color: #f00; color: #fff; padding: 10px; border-radius: 5px;")
         self.toast_label.show()
         QTimer.singleShot(3000, self.toast_label.hide)
 
@@ -190,6 +240,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
             button.setIconSize(QtCore.QSize(40, 40))
             button.clicked.connect(lambda checked, emoji=emoji_text, type_=emoji_type: self.send_response(emoji, type_))
             button.setFixedSize(60, 60)
+            button.setStyleSheet("background-color: #555555")
             response_layout.addWidget(button)
 
         self.layout.addLayout(response_layout)
@@ -353,10 +404,6 @@ class WalltakerApp(QtWidgets.QMainWindow):
             self.link_id.setText(settings.get("link_id", ""))
             self.api_key.setText(settings.get("api_key", ""))
 
-    def closeEvent(self, event):
-        self.is_polling = False
-        event.accept()
-
     def toggle_popout_mode(self):
         if self.popout_toggle_button.isChecked():
             self.popout_toggle_button.setText("Disable Pop-Out Mode")
@@ -396,11 +443,15 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.notif_vol_label.setText(f"Notification Volume: {self.notif_vol_interval}")
 
     def closeEvent(self, event):
-        event.ignore()
-        self.hide()
-        self.tray_icon.showMessage('Walltaker', 'Running in background')
+        if self.is_polling:
+            event.ignore()
+            self.hide()
+            self.tray_icon.showMessage('Walltaker', 'Running in background')
+        else:
+            event.accept()
 
     def exit(self):
         self.is_polling = False
         self.popout_window.close()
+        self.tray_icon.showMessage('Walltaker', 'Closing...')
         self.close()
