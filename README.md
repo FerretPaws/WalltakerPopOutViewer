@@ -1,4 +1,4 @@
-![alt text](https://github.com/FerretPaws/WalltakerPopOutViewer/blob/main/readmeresources/img2.png)
+![alt text](https://github.com/FerretPaws/WalltakerPopOutViewer/blob/main/readmeresources/v1.0.2%20img.png)
 
 # WalltakerPopOutViewer
 A Python-based WallTaker client with support for pop-out viewing and new image notifications!
