@@ -13,9 +13,9 @@ A Python-based WallTaker client with support for pop-out viewing and new image n
 - Image download button for easy saving of images sent to you!
 
 # Known Issues
-- You must close the app twice through the system tray for it to fully close
 - The app does not support videos or gifs (Sorry! This is just a limitation of my knowledge of Python!)
 - Large images will clip inside the main GUI window but will show fine in pop-out mode. This is intentional.
+- Larger monitors may have issues with text scaling
 
 # How to install/use
 1. Download the .exe from the [Releases](https://github.com/FerretPaws/WalltakerPopOutViewer/releases) tab. (KEEP THE EXE INSIDE A FOLDER!!)
