@@ -10,7 +10,7 @@ A Python-based WallTaker client with support for pop-out viewing and new image n
 - Responses and Custom Replies: Includes emoji-based quick responses and a text field for custom responses, which can be sent back to Walltaker’s API for interactive engagement.
 - System Tray Integration: Minimizes to the system tray with the option to close, run in the background, or fully exit from the tray menu.
 - Adjustable Polling and Notification Settings: Sliders for setting polling delay, pop-out size, and notification volume allow easy customization and control.
-- Image download button for easy saving of images sent to you!
+- Image download button for easy saving of images sent to you! (Automatically sent to /exe-folder/downloads/)
 - A button that allows you to automatically download all incoming images!
 
 # Known Issues
