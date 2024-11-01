@@ -24,7 +24,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Walltaker Pop-Out Viewer")
-    
+
         # Set base dimensions for scaling
         self.base_width = 500
         self.base_height = 1000
@@ -34,6 +34,9 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.text_color = "#FFFFFF"
         self.button_bg = "#555555"
         self.link_color = "#FFFFFF"
+
+        # Set the minimum size of the window
+
 
         self.central_widget = QtWidgets.QWidget()
         self.setCentralWidget(self.central_widget)
@@ -77,7 +80,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.polling_interval = 15
         self.is_polling = False
 
-        self.setStyleSheet(f"background-color: {self.bg_color}; color: {self.text_color}; font-size: 12pt; font-family: Helvetica;")
+        self.setStyleSheet(f"background-color: {self.bg_color}; color: {self.text_color}; font-size: 13pt; font-family: Helvetica;")
 
         self.popout_toggle_button = QtWidgets.QPushButton("Enable Pop-Out Mode")
         self.popout_toggle_button.setCheckable(True)
@@ -201,7 +204,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
 
         # Apply scaling factor with slight reduction in height to set window size
         adjusted_height = int(self.base_height * scale_factor * .95) 
-        self.setFixedSize(int(self.base_width * scale_factor), adjusted_height)
+        self.setMinimumSize(int(self.base_width * scale_factor), adjusted_height)
 
 
     def show_toast(self, message, success=True):
