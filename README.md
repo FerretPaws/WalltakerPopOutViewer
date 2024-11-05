@@ -13,6 +13,7 @@ A Python-based WallTaker client with support for pop-out viewing and new image n
 - Image download button for easy saving of images sent to you! (Automatically sent to /exe-folder/downloads/)
 - A button that allows you to automatically download all incoming images!
 - Fade Out the pop-out image for less visible obstruction!
+- Supports simultaneous running of multiple links at once! (Put the different exe into different folders to save settiings differently)
 
 # Known Issues
 - The app does not support videos or gifs (Sorry! This is just a limitation of my knowledge of Python!)
