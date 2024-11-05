@@ -1,11 +1,9 @@
-import sys
 import requests
 from PyQt5.QtWidgets import QMessageBox
 from PIL import Image
 from io import BytesIO
 import threading
 import time
-import shelve
 from PIL.ImageQt import ImageQt
 from PyQt5.QtGui import *
 from PyQt5 import QtWidgets, QtCore
@@ -16,6 +14,7 @@ import pathlib
 import pygame
 import os
 from image_popout import ImagePopOut # type: ignore
+from settings import SettingsManager
 
 class WalltakerApp(QtWidgets.QMainWindow):
     user_info_signal = QtCore.pyqtSignal(dict)
@@ -24,9 +23,9 @@ class WalltakerApp(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Walltaker Pop-Out Viewer")
+        self.settings_manager = SettingsManager()
 
-        # Set base dimensions for scaling
-        self.base_width = 500
+        self.base_width = 700
         self.base_height = 1000
         self.scale_window_to_screen()
         
@@ -34,9 +33,6 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.text_color = "#FFFFFF"
         self.button_bg = "#555555"
         self.link_color = "#FFFFFF"
-
-        # Set the minimum size of the window
-
 
         self.central_widget = QtWidgets.QWidget()
         self.setCentralWidget(self.central_widget)
@@ -55,9 +51,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.layout.addWidget(self.toast_label)
         self.toast_label.hide()
 
-        self.load_settings()
         self.create_entry_fields()
-        self.create_response_buttons()
         self.create_custom_response_section()
 
         self.start_button = QtWidgets.QPushButton("Start")
@@ -82,22 +76,45 @@ class WalltakerApp(QtWidgets.QMainWindow):
 
         self.setStyleSheet(f"background-color: {self.bg_color}; color: {self.text_color}; font-size: 13pt; font-family: Helvetica;")
 
-        self.popout_toggle_button = QtWidgets.QPushButton("Enable Pop-Out Mode")
+        settings_button_layout = QtWidgets.QHBoxLayout()
+
+        self.popout_toggle_button = QtWidgets.QPushButton("Enable Pop-Out")
         self.popout_toggle_button.setCheckable(True)
         self.popout_toggle_button.clicked.connect(self.toggle_popout_mode)
         self.layout.addWidget(self.popout_toggle_button, alignment=QtCore.Qt.AlignCenter)
         self.popout_toggle_button.setStyleSheet(f"background-color: {self.button_bg}")
 
-        self.download_button = QtWidgets.QPushButton("Download Image")
+        self.download_button = QtWidgets.QPushButton("Download")
         self.download_button.clicked.connect(self.download_image)
         self.layout.addWidget(self.download_button, alignment=QtCore.Qt.AlignCenter)
         self.download_button.setStyleSheet(f"background-color: {self.button_bg}")
 
-        self.auto_download_button = QtWidgets.QPushButton("Toggle Auto Image Download")
+        self.auto_download_button = QtWidgets.QPushButton("Toggle Auto Download")
         self.auto_download_button.setCheckable(True)
         self.auto_download_button.clicked.connect(self.toggle_auto_download)
         self.layout.addWidget(self.auto_download_button, alignment=QtCore.Qt.AlignCenter)
         self.auto_download_button.setStyleSheet(f"background-color: {self.button_bg}")
+
+        self.fade_out_button = QtWidgets.QPushButton("Fade Out Pop-Out Image")
+        self.fade_out_button.setCheckable(True)
+        self.fade_out_button.clicked.connect(self.toggle_fade_out)
+        self.layout.addWidget(self.fade_out_button, alignment=QtCore.Qt.AlignCenter)
+        self.fade_out_button.setStyleSheet(f"background-color: {self.button_bg}")
+
+        # Add a new attribute to the WalltakerApp class to track the fade out state
+        self.fade_out_enabled = False
+
+        self.slider_toggle_button = QtWidgets.QPushButton("Edit Settings")
+        self.slider_toggle_button.clicked.connect(self.toggle_sliders)
+        self.layout.addWidget(self.slider_toggle_button)
+        self.slider_toggle_button.setStyleSheet(f"background-color: {self.button_bg}")
+
+        settings_button_layout.addWidget(self.popout_toggle_button)
+        settings_button_layout.addWidget(self.download_button)
+        settings_button_layout.addWidget(self.auto_download_button)
+        settings_button_layout.addWidget(self.fade_out_button)
+        # Add other buttons here
+        self.layout.addLayout(settings_button_layout)
 
         # Initialize pop-out window
         self.popout_window = ImagePopOut()
@@ -166,10 +183,81 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.tray_menu.addAction(QAction('Exit', self, triggered=self.exit))
         self.tray_icon.setContextMenu(self.tray_menu)
 
+        self.image_signal.connect(self.reset_popout_opacity)
+        self.image_signal.connect(self.update_image_label)
+        self.image_signal.connect(self.toggle_fade_out)
+        self.image_signal.connect(self.popout_window.update_image)
+
+        self.load_settings()
+
+        self.notif_vol_slider.hide()
+        self.polling_delay_slider.hide()
+        self.popout_size_slider.hide()
+        self.fade_out_button.hide()
+        self.auto_download_button.hide()
+
+    def show_toast(self, message, success=True):
+        self.toast_label.setText(message)
+        self.toast_label.setStyleSheet("background-color: #228B22; color: #fff; padding: 10px; border-radius: 5px" if success else "background-color: #00FF00; color: #fff; padding: 10px; border-radius: 5px")
+        self.toast_label.show()
+        QTimer.singleShot(3000, self.toast_label.hide)
+
+    def toggle_sliders(self):
+        if self.notif_vol_slider.isHidden():
+            self.notif_vol_slider.show()
+            self.polling_delay_slider.show()
+            self.popout_size_slider.show()
+            self.fade_out_button.show()
+            self.auto_download_button.show()
+            self.slider_toggle_button.setText("Hide Settings")
+
+            # Show the labels and input fields
+            for i in reversed(range(self.layout.count())):
+                widget = self.layout.itemAt(i).widget()
+                if isinstance(widget, QtWidgets.QLabel) and (widget.text() == "Link ID:" or widget.text() == "API Key:"):
+                    widget.show()
+                elif isinstance(widget, QtWidgets.QLineEdit) and (widget == self.link_id or widget == self.api_key):
+                    widget.show()
+        else:
+            self.notif_vol_slider.hide()
+            self.polling_delay_slider.hide()
+            self.popout_size_slider.hide()
+            self.fade_out_button.hide()
+            self.auto_download_button.hide()
+            self.slider_toggle_button.setText("Show Settings")
+
+            # Hide the labels and input fields
+            for i in reversed(range(self.layout.count())):
+                widget = self.layout.itemAt(i).widget()
+                if isinstance(widget, QtWidgets.QLabel) and (widget.text() == "Link ID:" or widget.text() == "API Key:"):
+                    widget.hide()
+                elif isinstance(widget, QtWidgets.QLineEdit) and (widget == self.link_id or widget == self.api_key):
+                    widget.hide()
+
+    def reset_popout_opacity(self):
+        if self.popout_window.isVisible():
+            self.popout_window.setWindowOpacity(1.0)  # reset opacity to 1.0
+
+    def toggle_fade_out(self):
+        self.fade_out_enabled = self.fade_out_button.isChecked()
+        if self.fade_out_enabled:
+            self.fade_out_timer = QTimer()
+            self.fade_out_timer.timeout.connect(self.fade_out_popout)
+            self.fade_out_timer.start(10000)  # 10 seconds
+        else:
+            self.reset_popout_opacity()
+
+    # Define the fade_out_popout method
+    def fade_out_popout(self):
+        if self.popout_window.isVisible():
+            self.popout_window.setWindowOpacity(0.1)  # fade out to 10% opacity
+            self.fade_out_timer.stop()
+
     def toggle_auto_download(self):
         self.auto_download_images = self.auto_download_button.isChecked()
+        self.save_settings()
 
-    def download_image(self):
+    def download_image(self):  # sourcery skip: extract-method
         if self.image_link:
             response = requests.get(self.image_link)
             if response.status_code == 200:
@@ -187,6 +275,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
                 with open(image_path, 'wb') as f:
                     f.write(response.content)
                 self.show_toast("Image downloaded!", success=True)
+                self.toast_label.hide()
             else:
                 self.show_toast("Download Failed!", success=False)
         else:
@@ -203,15 +292,8 @@ class WalltakerApp(QtWidgets.QMainWindow):
         scale_factor = min(screen_width / self.base_width, screen_height / self.base_height)
 
         # Apply scaling factor with slight reduction in height to set window size
-        adjusted_height = int(self.base_height * scale_factor * .95) 
+        adjusted_height = int(self.base_height * scale_factor * .90) 
         self.setMinimumSize(int(self.base_width * scale_factor), adjusted_height)
-
-
-    def show_toast(self, message, success=True):
-        self.toast_label.setText(message)
-        self.toast_label.setStyleSheet("background-color: #333; color: #fff; padding: 10px; border-radius: 5px" if success else "background-color: #f00; color: #fff; padding: 10px; border-radius: 5px;")
-        self.toast_label.show()
-        QTimer.singleShot(3000, self.toast_label.hide)
 
     def create_entry_fields(self):
         link_id_label = QtWidgets.QLabel("Link ID:")
@@ -226,61 +308,92 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.api_key.setStyleSheet(f"background-color: {self.button_bg}; color: {self.text_color};")
         self.api_key.setEchoMode(QtWidgets.QLineEdit.Password)
         self.layout.addWidget(self.api_key)
-
-    def create_response_buttons(self):
-
-        current_dir = pathlib.Path(__file__).parent
-
-        # Create a relative path to the images folder
-        images_folder = current_dir / 'images'
-
-        # Use the relative path to load the images
-
-        emoji_files = [
-            f"{images_folder}/emoji_heart.png",
-            f"{images_folder}/emoji_water.png",
-            f"{images_folder}/emoji_vomit.png",
-            f"{images_folder}/emoji_thumbsup.png",
-        ]
-        emoji_texts = ["😍", "💦", "🤮", "👍"]
-        emoji_types = ["horny", "came", "disgust", "ok"]
-
-        response_layout = QtWidgets.QHBoxLayout()
-        for i, (emoji_file, emoji_text, emoji_type) in enumerate(zip(emoji_files, emoji_texts, emoji_types)):
-            button = QtWidgets.QPushButton()
-            button.setIcon(QtGui.QIcon(emoji_file))
-            button.setIconSize(QtCore.QSize(40, 40))
-            button.clicked.connect(lambda checked, emoji=emoji_text, type_=emoji_type: self.send_response(emoji, type_))
-            button.setFixedSize(60, 60)
-            button.setStyleSheet("background-color: #555555")
-            response_layout.addWidget(button)
-
-        self.layout.addLayout(response_layout)
-
+        
     def create_custom_response_section(self):
-        custom_response_label = QtWidgets.QLabel("Custom Reply:")
+        # Initialize and style custom response label
+        custom_response_label = QtWidgets.QLabel("Reply:")
         custom_response_label.setStyleSheet(f"color: {self.text_color};")
         self.layout.addWidget(custom_response_label)
 
+        # Layout for custom response input
+        response_input_layout = QtWidgets.QHBoxLayout()
+        self.layout.addLayout(response_input_layout)
+
+        # Input field for custom response text
         self.custom_response_entry = QtWidgets.QLineEdit()
         self.custom_response_entry.setStyleSheet(f"background-color: {self.button_bg}; color: {self.text_color};")
-        self.layout.addWidget(self.custom_response_entry)
+        response_input_layout.addWidget(self.custom_response_entry)
 
+        # Combo box for response types
+        self.response_type_combo = QtWidgets.QComboBox()
+        self.response_type_combo.addItems(["😍", "💦", "🤮", "👍"])  # Add more types if needed
+        self.response_type_combo.setStyleSheet(f"background-color: {self.button_bg}; color: {self.text_color};")
+        self.response_type_combo.setFixedSize(50, 40)  # Set smaller size for combo box
+        response_input_layout.addWidget(self.response_type_combo)
+
+        # Button to send the custom reply
         send_custom_button = QtWidgets.QPushButton("Send Reply")
         send_custom_button.setStyleSheet(f"background-color: {self.button_bg}; color: {self.text_color};")
-        send_custom_button.clicked.connect(self.send_custom_response)
+        send_custom_button.clicked.connect(lambda: self.send_custom_response(self.response_type_combo.currentText(), self.custom_response_entry.text()))
         self.layout.addWidget(send_custom_button)
 
+    def send_custom_response(self, response_type, custom_response):
+        response_type_map = {
+            "😍": "horny",
+            "💦": "came",
+            "🤮": "disgust",
+            "👍": "ok",
+        }
+        actual_response_type = response_type_map.get(response_type, "ok")
+
+        # Ensure link_id and api_key are set
+        if not self.link_id or not self.api_key or not self.link_id.text() or not self.api_key.text():
+            print("Debug: Missing Link ID or API Key.")
+            self.show_error("Link ID or API Key is missing.")
+            return
+
+        # Construct URL and payload
+        url = f"https://walltaker.joi.how/api/links/{self.link_id.text()}/response.json"
+        payload = {
+            "api_key": self.api_key.text(),
+            "type": actual_response_type,
+            "text": custom_response if custom_response else response_type,
+        }
+        headers = {"User-Agent": "WTPopOutViewer"}
+
+        print(f"Debug: Sending request with URL - {url}, Payload - {payload}")  # Before sending request
+
+        try:
+            response = requests.post(url, data=payload, headers=headers)
+            response.raise_for_status()
+
+            # Comment out show_toast and check if crash still happens
+            print("Debug: Response sent successfully")
+            # self.show_toast("Response sent!", success=True)  # Uncomment after testing
+        except requests.exceptions.RequestException as req_err:
+            print(f"Debug: Request error occurred: {req_err}")
+            # self.show_error(f"Request error occurred: {req_err}")  # Uncomment after testing
+        except Exception as e:
+            print(f"Debug: Unexpected error: {e}")
+            # self.show_error(f"Unexpected error: {e}")  # Uncomment after testing
+
+        print("Debug: End of send_custom_response")
+
     def save_settings(self):
-        with shelve.open("walltaker_settings") as settings:
-            settings["link_id"] = self.link_id.text()
-            settings["api_key"] = self.api_key.text()
-            self.show_toast("Settings saved!")
+        self.settings_manager.save_settings(
+            self.link_id.text(),
+            self.api_key.text(),
+            self.polling_delay_slider.value(),
+            self.popout_size_slider.value(),
+            self.notif_vol_slider.value(),
+            self.auto_download_button.isChecked(),
+            self.fade_out_button.isChecked(),
+        )
 
     def fetch_user_info(self, username):
         api_key = self.api_key.text()
         if not api_key:
-            self.show_toast("An API key is required!")
+            self.show_toast("An API key is required!", success=False)
             return
             
         url = f"https://walltaker.joi.how/api/users/{username}.json?api_key={api_key}"
@@ -293,7 +406,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
             self.user_account_link = f"https://walltaker.joi.how/users/{self.username}"
             self.user_info_signal.emit(user_data)
         except Exception as e:
-            self.show_toast("Error fetching user info: " + str(e))
+            self.show_toast("Error fetching user info: " + str(e), success=False)
 
     def display_user_info(self, user_data):
         for i in reversed(range(self.user_info_layout.count())): 
@@ -307,7 +420,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
 
         self.user_info_layout.addWidget(user_account_label)
         self.user_info_layout.addWidget(QtWidgets.QLabel(f"{user_data['username']} {'is' if user_data['online'] else 'is not'} Online", self.user_info_frame))
-        self.user_info_layout.addWidget(QtWidgets.QLabel(f"{user_data['username']} {'is your' if user_data['friend'] else 'is not your'} friend", self.user_info_frame))
+        self.user_info_layout.addWidget(QtWidgets.QLabel(f"{user_data['username']} {'is your' if user_data['friend'] else 'is not your'} friend (CURRENTLY BROKEN)", self.user_info_frame))
 
         if self.image_link:
             image_link_label = QtWidgets.QLabel(f"Image Link: <a href='{self.image_link}' style='color: {self.link_color}; text-decoration: underline;'>{self.image_link}</a>")
@@ -316,7 +429,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
 
     def start_polling(self):
         if not self.link_id.text() or not self.api_key.text():
-            self.show_toast("Please enter both Link ID and API key!")
+            self.show_toast("Please enter both Link ID and API key!", success=False)
             return
 
         self.username = None
@@ -324,7 +437,17 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.start_button.setEnabled(False)
         self.start_button.setStyleSheet("background-color: black; color: white;")
         self.is_polling = True
+
+        # Hide the labels and input fields
+        for i in reversed(range(self.layout.count())):
+            widget = self.layout.itemAt(i).widget()
+            if isinstance(widget, QtWidgets.QLabel) and (widget.text() == "Link ID:" or widget.text() == "API Key:"):
+                widget.hide()
+            elif isinstance(widget, QtWidgets.QLineEdit) and (widget == self.link_id or widget == self.api_key):
+                widget.hide()
+
         threading.Thread(target=self.poll_data, daemon=True).start()
+
 
     def poll_data(self):
         last_posted_by = None
@@ -340,27 +463,26 @@ class WalltakerApp(QtWidgets.QMainWindow):
                 if data['post_url'] != last_post_url:
                     # Check for unsupported file types
                     if data['post_url'].endswith(('.mp4', '.gif', '.webm')):
-                        self.show_error("Unsupported media format received (.mp4, .gif, .webm). Keeping the previous image.")
-                        continue
+                        self.show_toast("Unsupported media format received (.mp4, .gif, .webm). Keeping the previous image.", success=False)
+                    else:
+                        last_posted_by = data['set_by']
+                        self.image_link = data["post_url"]
+                        last_post_url = self.image_link
+                        self.fetch_user_info(data['set_by'])
 
-                    last_posted_by = data['set_by']
-                    self.image_link = data["post_url"]
-                    last_post_url = self.image_link
-                    self.fetch_user_info(data['set_by'])
-
-                    # Attempt to load and display the image
-                    image_response = requests.get(data["post_url"], headers=headers)
-                    image = Image.open(BytesIO(image_response.content))
-                    qt_image = ImageQt(image)
-                    pixmap = QPixmap.fromImage(qt_image)
-                    self.image_signal.emit(pixmap)  # Emit the signal with the new pixmap
-
-                    # Auto-download feature
-                    if self.auto_download_button.isChecked() and self.image_link:
-                        self.download_image()
+                        # Attempt to load and display the image
+                        image_response = requests.get(data["post_url"], headers=headers)
+                        image = Image.open(BytesIO(image_response.content))
+                        qt_image = ImageQt(image)
+                        pixmap = QPixmap.fromImage(qt_image)
+                        self.image_signal.emit(pixmap)  # Emit the signal with the new pixmap
+                        self.toast_label.hide()
+                        # Auto-download feature
+                        if self.auto_download_button.isChecked() and self.image_link:
+                            self.download_image()
 
             except Exception as e:
-                self.show_error(f"Polling failed: {e}")
+                self.show_toast(f"Polling failed: {e}", success=False)
 
             time.sleep(self.polling_interval)
 
@@ -382,50 +504,6 @@ class WalltakerApp(QtWidgets.QMainWindow):
         pygame.mixer.music.set_volume(self.notif_vol_slider.value() / 100)  # Set the volume to 50%
         pygame.mixer.music.play()
 
-
-    def send_response(self, emoji, response_type):
-        if self.username:
-            url = f"https://walltaker.joi.how/api/links/{self.link_id.text()}/response.json"
-            payload = {
-                "api_key": self.api_key.text(),
-                "type": response_type,
-            }
-            headers = {"User-Agent": "WTPopOutViewer"}
-            try:
-                response = requests.post(url, data=payload, headers=headers)
-                response.raise_for_status()
-                self.show_toast("Response sent!", success=True)
-            except Exception as e:
-                self.show_error(f"Response failed: {e}")
-
-    def send_custom_response(self):
-        custom_response = self.custom_response_entry.text()
-        if self.username and custom_response:
-            url = f"https://walltaker.joi.how/api/links/{self.link_id.text()}/response.json"
-            payload = {
-                "api_key": self.api_key.text(),
-                "text": custom_response,
-            }
-            headers = {"User-Agent": "WTPopOutViewer"}
-            try:
-                response = requests.post(url, data=payload, headers=headers)
-                response.raise_for_status()
-                self.show_toast("Response sent!", success=True)
-            except Exception as e:
-                self.show_error(f"Response failed: {e}")
-
-    def show_error(self, message):
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Critical)
-        msg.setText(message)
-        msg.setWindowTitle("Error")
-        msg.exec_()
-
-    def load_settings(self):
-        with shelve.open("walltaker_settings") as settings:
-            self.link_id.setText(settings.get("link_id", ""))
-            self.api_key.setText(settings.get("api_key", ""))
-
     def toggle_popout_mode(self):
         if self.popout_toggle_button.isChecked():
             self.popout_toggle_button.setText("Disable Pop-Out Mode")
@@ -433,10 +511,12 @@ class WalltakerApp(QtWidgets.QMainWindow):
         else:
             self.popout_toggle_button.setText("Enable Pop-Out Mode")
             self.popout_window.hide()
+        self.save_settings()
             
     def update_popout_size(self, value):
         self.popout_size_timer.stop()
         self.popout_size_timer.start(self.popout_delay)
+        self.save_settings()
 
     def update_popout_size_timer(self):
         # Put the original code from update_popout_size here
@@ -453,6 +533,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
     def update_polling_delay(self, value):
         self.polling_delay_timer.stop()
         self.polling_delay_timer.start(self.polling_delay)
+        self.save_settings()
 
     def update_polling_delay_timer(self):
         # Put the original code from update_polling_delay here
@@ -463,6 +544,17 @@ class WalltakerApp(QtWidgets.QMainWindow):
         # Put the original code from update_polling_delay here
         self.notif_vol_interval = self.notif_vol_slider.value()
         self.notif_vol_label.setText(f"Notification Volume: {self.notif_vol_interval}")
+        self.save_settings()
+
+    def load_settings(self):
+        settings = self.settings_manager.load_settings()
+        self.link_id.setText(settings["link_id"])
+        self.api_key.setText(settings["api_key"])
+        self.polling_delay_slider.setValue(settings["polling_delay"])
+        self.popout_size_slider.setValue(settings["popout_size"])
+        self.notif_vol_slider.setValue(settings["notif_vol"])
+        self.auto_download_button.setChecked(settings["auto_download"])
+        self.fade_out_button.setChecked(settings["fade_out"])
 
     def closeEvent(self, event):
         if self.is_polling:
