@@ -275,7 +275,6 @@ class WalltakerApp(QtWidgets.QMainWindow):
                 with open(image_path, 'wb') as f:
                     f.write(response.content)
                 self.show_toast("Image downloaded!", success=True)
-                self.toast_label.hide()
             else:
                 self.show_toast("Download Failed!", success=False)
         else:
@@ -369,13 +368,13 @@ class WalltakerApp(QtWidgets.QMainWindow):
 
             # Comment out show_toast and check if crash still happens
             print("Debug: Response sent successfully")
-            # self.show_toast("Response sent!", success=True)  # Uncomment after testing
+            self.show_toast("Response sent!", success=True)  # Uncomment after testing
         except requests.exceptions.RequestException as req_err:
             print(f"Debug: Request error occurred: {req_err}")
-            # self.show_error(f"Request error occurred: {req_err}")  # Uncomment after testing
+            self.show_error(f"Request error occurred: {req_err}")  # Uncomment after testing
         except Exception as e:
             print(f"Debug: Unexpected error: {e}")
-            # self.show_error(f"Unexpected error: {e}")  # Uncomment after testing
+            self.show_error(f"Unexpected error: {e}")  # Uncomment after testing
 
         print("Debug: End of send_custom_response")
 
@@ -418,14 +417,24 @@ class WalltakerApp(QtWidgets.QMainWindow):
         user_account_label.setOpenExternalLinks(True)
         user_account_label.setStyleSheet(f"color: {self.link_color};")
 
-        self.user_info_layout.addWidget(user_account_label)
-        self.user_info_layout.addWidget(QtWidgets.QLabel(f"{user_data['username']} {'is' if user_data['online'] else 'is not'} Online", self.user_info_frame))
-        self.user_info_layout.addWidget(QtWidgets.QLabel(f"{user_data['username']} {'is your' if user_data['friend'] else 'is not your'} friend (CURRENTLY BROKEN)", self.user_info_frame))
+        if 'friend' in user_data:
+            self.user_info_layout.addWidget(user_account_label)
+            self.user_info_layout.addWidget(QtWidgets.QLabel(f"{user_data['username']} {'is' if user_data['online'] else 'is not'} Online", self.user_info_frame))
+            self.user_info_layout.addWidget(QtWidgets.QLabel(f"{user_data['username']} {'is your' if user_data['friend'] else 'is not your'} friend (CURRENTLY BROKEN)", self.user_info_frame))
 
-        if self.image_link:
-            image_link_label = QtWidgets.QLabel(f"Image Link: <a href='{self.image_link}' style='color: {self.link_color}; text-decoration: underline;'>{self.image_link}</a>")
-            image_link_label.setOpenExternalLinks(True)
-            self.user_info_layout.addWidget(image_link_label)
+            if self.image_link:
+                image_link_label = QtWidgets.QLabel(f"Image Link: <a href='{self.image_link}' style='color: {self.link_color}; text-decoration: underline;'>{self.image_link}</a>")
+                image_link_label.setOpenExternalLinks(True)
+                self.user_info_layout.addWidget(image_link_label)
+        else:
+            self.user_info_layout.addWidget(user_account_label)
+            self.user_info_layout.addWidget(QtWidgets.QLabel(f"{user_data['username']} {'is' if user_data['online'] else 'is not'} Online", self.user_info_frame))
+            self.user_info_layout.addWidget(QtWidgets.QLabel(f"Your account has not been updated! Contact the staff team!", self.user_info_frame))
+
+            if self.image_link:
+                image_link_label = QtWidgets.QLabel(f"Image Link: <a href='{self.image_link}' style='color: {self.link_color}; text-decoration: underline;'>{self.image_link}</a>")
+                image_link_label.setOpenExternalLinks(True)
+                self.user_info_layout.addWidget(image_link_label)
 
     def start_polling(self):
         if not self.link_id.text() or not self.api_key.text():
