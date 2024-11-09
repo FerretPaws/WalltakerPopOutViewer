@@ -157,11 +157,11 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.notif_vol_delay = 100  # 200ms delay
 
         # Create labels to display the current values
-        self.polling_delay_label = QLabel("Polling Delay (s): 10")
+        self.polling_delay_label = QLabel("Delay: 10s")
         self.layout.addWidget(self.polling_delay_label)
         self.layout.addWidget(self.polling_delay_slider)
 
-        self.popout_size_label = QLabel("Pop-out Size: 500")
+        self.popout_size_label = QLabel("Pop-out Size: 500px")
         self.layout.addWidget(self.popout_size_label)
         self.layout.addWidget(self.popout_size_slider)
 
@@ -169,6 +169,14 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.layout.addWidget(self.notif_vol_label)
         self.layout.addWidget(self.notif_vol_slider)
 
+        self.fade_out_slider = QSlider(QtCore.Qt.Horizontal)
+        self.fade_out_slider.setMinimum(0)
+        self.fade_out_slider.setMaximum(100)
+        self.fade_out_slider.setValue(10)
+        self.fade_out_slider.valueChanged.connect(self.update_fade_out_opacity)
+        self.fade_out_label = QLabel("Fade Out Opacity: 10%")
+        self.layout.addWidget(self.fade_out_label)
+        self.layout.addWidget(self.fade_out_slider)
         current_dir = pathlib.Path(__file__).parent
 
         # Create a relative path to the images folder
@@ -195,10 +203,20 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.popout_size_slider.hide()
         self.fade_out_button.hide()
         self.auto_download_button.hide()
+        self.fade_out_slider.hide()
+
+    def update_fade_out_opacity(self, value):
+        self.fade_out_num = self.fade_out_slider.value()
+        self.fade_out_label.setText(f"Fade Out Opacity: {self.fade_out_num}%")
+        self.save_settings()
+        if self.fade_out_button.isChecked():
+            self.popout_window.setWindowOpacity(value / 100)  # Set the opacity of the popout window based on the slider value
+        else:
+            return
 
     def show_toast(self, message, success=True):
         self.toast_label.setText(message)
-        self.toast_label.setStyleSheet("background-color: #228B22; color: #fff; padding: 10px; border-radius: 5px" if success else "background-color: #00FF00; color: #fff; padding: 10px; border-radius: 5px")
+        self.toast_label.setStyleSheet("background-color: #228B22; color: #fff; padding: 10px; border-radius: 5px" if success else "background-color: #730000; color: #fff; padding: 10px; border-radius: 5px")
         self.toast_label.show()
         QTimer.singleShot(3000, self.toast_label.hide)
 
@@ -209,6 +227,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
             self.popout_size_slider.show()
             self.fade_out_button.show()
             self.auto_download_button.show()
+            self.fade_out_slider.show()
             self.slider_toggle_button.setText("Hide Settings")
 
             # Show the labels and input fields
@@ -224,6 +243,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
             self.popout_size_slider.hide()
             self.fade_out_button.hide()
             self.auto_download_button.hide()
+            self.fade_out_slider.hide()
             self.slider_toggle_button.setText("Show Settings")
 
             # Hide the labels and input fields
@@ -250,7 +270,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
     # Define the fade_out_popout method
     def fade_out_popout(self):
         if self.popout_window.isVisible():
-            self.popout_window.setWindowOpacity(0.1)  # fade out to 10% opacity
+            self.popout_window.setWindowOpacity(self.fade_out_num / 100)  # fade out to 10% opacity
             self.fade_out_timer.stop()
 
     def toggle_auto_download(self):
@@ -347,8 +367,6 @@ class WalltakerApp(QtWidgets.QMainWindow):
 
         # Ensure link_id and api_key are set
         if not self.link_id or not self.api_key or not self.link_id.text() or not self.api_key.text():
-            print("Debug: Missing Link ID or API Key.")
-            self.show_error("Link ID or API Key is missing.")
             return
 
         # Construct URL and payload
@@ -360,23 +378,17 @@ class WalltakerApp(QtWidgets.QMainWindow):
         }
         headers = {"User-Agent": "WTPopOutViewer"}
 
-        print(f"Debug: Sending request with URL - {url}, Payload - {payload}")  # Before sending request
-
         try:
             response = requests.post(url, data=payload, headers=headers)
             response.raise_for_status()
 
             # Comment out show_toast and check if crash still happens
-            print("Debug: Response sent successfully")
             self.show_toast("Response sent!", success=True)  # Uncomment after testing
         except requests.exceptions.RequestException as req_err:
-            print(f"Debug: Request error occurred: {req_err}")
-            self.show_error(f"Request error occurred: {req_err}")  # Uncomment after testing
+            self.show_toast(f"Debug: Request error occurred: {req_err}", success=False)
         except Exception as e:
-            print(f"Debug: Unexpected error: {e}")
-            self.show_error(f"Unexpected error: {e}")  # Uncomment after testing
+            self.show_toast(f"Unexpected error: {e}", success=False)  # Uncomment after testing
 
-        print("Debug: End of send_custom_response")
 
     def save_settings(self):
         self.settings_manager.save_settings(
@@ -387,6 +399,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
             self.notif_vol_slider.value(),
             self.auto_download_button.isChecked(),
             self.fade_out_button.isChecked(),
+            self.fade_out_slider.value(),
         )
 
     def fetch_user_info(self, username):
@@ -429,7 +442,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
         else:
             self.user_info_layout.addWidget(user_account_label)
             self.user_info_layout.addWidget(QtWidgets.QLabel(f"{user_data['username']} {'is' if user_data['online'] else 'is not'} Online", self.user_info_frame))
-            self.user_info_layout.addWidget(QtWidgets.QLabel(f"Your account has not been updated! Contact the staff team!", self.user_info_frame))
+            self.user_info_layout.addWidget(QtWidgets.QLabel(f"Your API Key was incorrect! Please restart and input a correct API key for this to work.", self.user_info_frame))
 
             if self.image_link:
                 image_link_label = QtWidgets.QLabel(f"Image Link: <a href='{self.image_link}' style='color: {self.link_color}; text-decoration: underline;'>{self.image_link}</a>")
@@ -446,6 +459,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.start_button.setEnabled(False)
         self.start_button.setStyleSheet("background-color: black; color: white;")
         self.is_polling = True
+        self.start_button.hide()
 
         # Hide the labels and input fields
         for i in reversed(range(self.layout.count())):
@@ -537,7 +551,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
             qt_image = ImageQt(image)
             pixmap = QPixmap.fromImage(qt_image)
             self.popout_window.update_image(pixmap)
-        self.popout_size_label.setText(f"Pop-out Size: {self.popout_size_slider.value()}")
+        self.popout_size_label.setText(f"Pop-out Size: {self.popout_size_slider.value()}px")
 
     def update_polling_delay(self, value):
         self.polling_delay_timer.stop()
@@ -547,7 +561,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
     def update_polling_delay_timer(self):
         # Put the original code from update_polling_delay here
         self.polling_interval = self.polling_delay_slider.value()
-        self.polling_delay_label.setText(f"Polling Delay (s): {self.polling_interval}")
+        self.polling_delay_label.setText(f"Delay: {self.polling_interval}sec")
 
     def update_notif_vol_timer(self):
         # Put the original code from update_polling_delay here
@@ -564,6 +578,7 @@ class WalltakerApp(QtWidgets.QMainWindow):
         self.notif_vol_slider.setValue(settings["notif_vol"])
         self.auto_download_button.setChecked(settings["auto_download"])
         self.fade_out_button.setChecked(settings["fade_out"])
+        self.fade_out_slider.setValue(settings["fade_out_number"])
 
     def closeEvent(self, event):
         if self.is_polling:
