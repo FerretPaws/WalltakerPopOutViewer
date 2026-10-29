@@ -20,15 +20,15 @@ class ImagePopOut(QtWidgets.QWidget):
         self.setWindowFlags(QtCore.Qt.FramelessWindowHint | QtCore.Qt.WindowStaysOnTopHint | QtCore.Qt.Tool)
         self.is_moving = False
 
-        # Set maximum dimensions for the pop-out image
-        self.max_width = 800  # Set maximum width
-        self.max_height = 600  # Set maximum height
+        self.max_width = 800
+        self.max_height = 600
 
     def update_image(self, pixmap):
         scaled_pixmap = pixmap.scaled(self.max_width, self.max_height, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
         self.image_label.setPixmap(scaled_pixmap)
         self.image_label.adjustSize()
-        self.resize(self.image_label.size())
+        if self.size() != self.image_label.size():
+            self.resize(self.image_label.size())
 
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton:

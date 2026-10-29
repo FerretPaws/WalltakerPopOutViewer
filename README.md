@@ -1,30 +1,47 @@
-![alt text](https://github.com/FerretPaws/WalltakerPopOutViewer/blob/main/readmeresources/v1.0.3%20img.PNG)
+![alt text](https://github.com/FerretPaws/WalltakerPopOutViewer/blob/main/readmeresources/v2%20img.PNG)
 
-# WalltakerPopOutViewer
-A Python-based WallTaker client with support for pop-out viewing and new image notifications!
+# WalltakerPopOutViewer V2.0
+A Walltaker desktop client that keeps your images/videos in view, it can pop them out into their own floating window, and shows you the moment something new arrives! V2.0 now handles GIFs, videos, and images!
 
-# Key Features
-- User Interface and Theme: Dark mode UI with customizable polling and pop-out window sizes, notification volume, and toast messages to provide quick feedback to the user.
-- Pop-Out Mode: Offers a toggleable pop-out window to display images separately, with adjustable size. The pop-out is resizable and movable for convenience.
-- User Information Display: Retrieves and shows details about the user who set the image, including username, friend status, online status, and number of links set, with a clickable link to the user's account, and a clickable link to the e621 image.
-- Responses and Custom Replies: Includes emoji-based quick responses and a text field for custom responses, which can be sent back to Walltaker’s API for interactive engagement.
-- System Tray Integration: Minimizes to the system tray with the option to close, run in the background, or fully exit from the tray menu.
-- Adjustable Polling and Notification Settings: Sliders for setting polling delay, pop-out size, and notification volume allow easy customization and control.
-- Image download button for easy saving of images sent to you! (Automatically sent to /exe-folder/downloads/)
-- A button that allows you to automatically download all incoming images!
-- Fade Out the pop-out image for less visible obstruction!
-- Supports simultaneous running of multiple links at once! (Put the different exe into different folders to save settiings differently)
+## What it does
 
-# Known Issues
-- The app does not support videos or gifs (Sorry! This is just a limitation of my knowledge of Python!)
-- Large images will clip inside the main GUI window but will show fine in pop-out mode. This is intentional.
-- Larger monitors may have issues with text scaling
+**GIFs & videos (new in 2.0)**
+- Plays GIFs, MP4, WebM, MOV and M4V. It's off by default, so turn on *Enable GIFs & videos* under Behaviour.
+- GIFs loop until something new is sent.
+- Videos can start by themselves the moment they arrive (*Autoplay*) or wait for you, showing the first frame.
+- Videos play with sound. Use *Mute videos* and the *Video volume* slider to control it. The volume is remembered next time.
+- Click the video to pause or resume it. A little badge shows what it's doing: ❚❚ when paused, ▶ when it starts, ↻ when it's finished (click to replay). The toolbar's Play/Pause button follows along.
+- Videos and GIFs work in the pop-out window as well.
+- Volume slider for videos.
 
-# How to install/use
-1. Download the .exe from the [Releases](https://github.com/FerretPaws/WalltakerPopOutViewer/releases) tab. (KEEP THE EXE INSIDE A FOLDER!!)
-2. Run the .exe, it will create 3 more files that will store your Link ID, API Key, and your settings. Your data is never stored anywhere but those files on your PC, don't share them.
-3. The program will run, input your Link ID and API Key and it will give you a sound to confirm it connected and then automatic polling will start.
-4. Enjoy! Feel free to change settings as you see fit!
+**Pop-out window**
+- Pop the picture out into its own always-on-top window. You can drag it anywhere and set how big you'd like it.
+- Fade it out after 10 seconds so it's less in the way. You choose how faded it gets.
+- It stays visible when the main window is minimized to the system tray.
 
-# Contact Me!
-- You can contact me through Discord to report issues or feedback **@pawbies**
+**Live updates**
+- Connects to the new fork, Walltaker Lycraon, so new images show up instantly with no polling. It reconnects on its own if the connection drops.
+- Prefer a different server? Pick *Custom…*, enter any host, and choose live or polling mode.
+- You get a notification sound when something new arrives, with its own volume slider.
+- Shows who set your wallpaper: their name, whether they're online, whether they're your friend, and how many links they've set. It also has clickable links to their profile and to the original image.
+
+**Replying**
+- Send a quick emoji reaction (😍 🤮 👍) or write a custom message along with the reaction.
+- The 💦 *I came!~* button sends an orgasm to the person who set your latest wallpaper. You can add an optional message or leave it blank for a default message. This will add an oragsm to that user's profile and cannot be undone.
+- Has a preview to show your own sent messages.
+
+**Saving**
+- One-click Download for whatever's on screen. GIFs and videos are saved in their own format.
+- Optional auto-download saves everything that comes in. Files go to `downloads` next to the exe.
+
+**Look & feel**
+- A redesigned layout: a big image viewport, a toolbar on top, and a collapsible *Properties* panel on the right that you can dock or drag away to float. (See GIF below!)
+- Three themes: Dark, Light and Classic (e621 colors).
+- A custom title bar with window snapping. Drag to the left or right edge for a half-screen window, or to the top to maximise. Drag it back out to restore the old size.
+
+**Under the hood**
+- Lower memory use. Very large images are shrunk on load, and old images are released straight away.
+- Settings are saved automatically as you change them.
+- Run several links at once by putting a copy of the exe in separate folders. Each keeps its own settings.
+
+![alt text](https://github.com/FerretPaws/WalltakerPopOutViewer/blob/main/readmeresources/FloatingProperties.gif)
